@@ -1,0 +1,5 @@
+api-url: "" # Example: https://panel.example.org
+email: ""
+password: ""
+prefix: "&3Cloud &8» &r" # Supports color codes with &
+enable-monitor: true # Enable server online/offline monitor
