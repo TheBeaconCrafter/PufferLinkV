@@ -48,6 +48,7 @@ public class PufferLinkV {
 
     @Subscribe
     public void onProxyInitialization(ProxyInitializeEvent event) {
+        logger.info("PufferLinkV v" + version + " initializing...");
         Path configFile = dataDirectory.resolve("config.yml");
 
         try {
@@ -91,6 +92,8 @@ public class PufferLinkV {
 
             logger.info("Logged into PufferPanel!");
             client.printAllServers();
+            
+            logger.info("PufferLinkV v" + version + " has been successfully initialized!");
 
         } catch (IOException e) {
             logger.error("Failed to load config!", e);
