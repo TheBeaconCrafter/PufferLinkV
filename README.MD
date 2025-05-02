@@ -65,10 +65,10 @@ It is strongly recommended to:
 
 ## Installation
 
-1. Place the plugin JAR in your BungeeCord's `plugins` folder
-2. Start/restart your BungeeCord server
+1. Place the plugin JAR in your Velocity server's `plugins` folder
+2. Start/restart your Velocity server
 3. Configure the `config.yml` with your PufferPanel credentials
-4. Restart BungeeCord or reload the plugin
+4. Restart Velocity
 
 ## Support
 
