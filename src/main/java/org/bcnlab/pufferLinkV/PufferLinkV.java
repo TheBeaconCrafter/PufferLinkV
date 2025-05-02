@@ -22,7 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 
-@Plugin(id = "pufferlinkv", name = "PufferLinkV", version = "1.0.0", description = "Port of PufferLink to Velocity", url = "bcnlab.org", authors = {"Vincent Wackler"})
+@Plugin(id = "pufferlinkv", name = "PufferLinkV", version = "1.0", description = "Port of PufferLink to Velocity", url = "bcnlab.org", authors = {"Vincent Wackler"})
 public class PufferLinkV {
     @Inject
     @DataDirectory
@@ -36,7 +36,7 @@ public class PufferLinkV {
     private ConfigurationNode config;
 
     private String prefix;
-    private final String version = "1.0.0";
+    private final String version = "1.0";
 
     @Inject
     private Logger logger;
@@ -64,7 +64,7 @@ public class PufferLinkV {
             config = loader.load();
 
             // Read values from config
-            prefix = config.node("plugin-prefix").getString("&6BeaconLabs &8» ");
+            prefix = config.node("prefix").getString("&3Cloud &8» &r");
             apiUrl = config.node("api-url").getString("");
             email = config.node("email").getString("");
             password = config.node("password").getString("");
@@ -82,7 +82,9 @@ public class PufferLinkV {
             }
 
             PufferClient client = new PufferClient(apiUrl, session, this);
-            proxy.getCommandManager().register("cloud", new CloudCommand(this, client, proxy));
+            CloudCommand cloudCommand = new CloudCommand(this, client, proxy);
+            proxy.getCommandManager().register("cloud", cloudCommand);
+            proxy.getCommandManager().register("puffer", cloudCommand);
 
             if (enableMonitor) {
                 serverMonitor = new ServerMonitor(this, proxy);

@@ -1,6 +1,6 @@
 # PufferLinkV (Velocity)
 
-> **Note:** This is a port of [PufferLink](https://github.com/TheBeaconCrafter/PufferLink) to Velocity. It is not finished and code-wise by far not the best implementation of a port, but it works perfectly fine.
+> **Note:** This is a port of [PufferLink](https://github.com/TheBeaconCrafter/PufferLink) to Velocity. It is not finished and code-wise by far not the best implementation of a port, but it works perfectly fine and has feature parity to the original.
 
 A BungeeCord plugin for managing PufferPanel v3 servers directly from your Minecraft server. This plugin allows server administrators to control and monitor their PufferPanel servers through in-game commands.
 
