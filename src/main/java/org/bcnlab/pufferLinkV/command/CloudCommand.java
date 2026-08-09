@@ -67,44 +67,28 @@ public class CloudCommand implements SimpleCommand {
                                 } catch (Exception e) {}
                                 
                                 client.listServers(servers -> {
-                                    java.util.List<java.util.concurrent.CompletableFuture<com.google.gson.JsonObject>> futures = new java.util.ArrayList<>();
                                     for (com.google.gson.JsonObject server : servers) {
                                         String id = server.get("id").getAsString();
-                                        java.util.concurrent.CompletableFuture<com.google.gson.JsonObject> future = new java.util.concurrent.CompletableFuture<>();
                                         client.getServerStatus(id, statusObj -> {
-                                            com.google.gson.JsonObject combined = new com.google.gson.JsonObject();
-                                            combined.addProperty("id", id);
-                                            combined.addProperty("name", server.get("name").getAsString());
-                                            if (statusObj != null) {
-                                                combined.addProperty("running", statusObj.get("running").getAsBoolean());
-                                                combined.addProperty("installing", statusObj.get("installing").getAsBoolean());
-                                            } else {
-                                                combined.addProperty("running", false);
-                                                combined.addProperty("installing", false);
-                                            }
-                                            future.complete(combined);
+                                            try {
+                                                java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
+                                                java.io.DataOutputStream out = new java.io.DataOutputStream(b);
+                                                out.writeUTF(id);
+                                                out.writeUTF(server.get("name").getAsString());
+                                                boolean running = false;
+                                                boolean installing = false;
+                                                if (statusObj != null) {
+                                                    running = statusObj.get("running").getAsBoolean();
+                                                    installing = statusObj.get("installing").getAsBoolean();
+                                                }
+                                                out.writeBoolean(running);
+                                                out.writeBoolean(installing);
+                                                
+                                                com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier identifier = com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier.from("beaconlabs:cloud_server_add");
+                                                player.getCurrentServer().ifPresent(s -> s.sendPluginMessage(identifier, b.toByteArray()));
+                                            } catch (Exception e) {}
                                         });
-                                        futures.add(future);
                                     }
-                                    
-                                    java.util.concurrent.CompletableFuture.allOf(futures.toArray(new java.util.concurrent.CompletableFuture[0])).thenRun(() -> {
-                                        try {
-                                            java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
-                                            java.io.DataOutputStream out = new java.io.DataOutputStream(b);
-                                            out.writeInt(futures.size());
-                                            for (java.util.concurrent.CompletableFuture<com.google.gson.JsonObject> f : futures) {
-                                                com.google.gson.JsonObject obj = f.get();
-                                                out.writeUTF(obj.get("id").getAsString());
-                                                out.writeUTF(obj.get("name").getAsString());
-                                                out.writeBoolean(obj.get("running").getAsBoolean());
-                                                out.writeBoolean(obj.get("installing").getAsBoolean());
-                                            }
-                                            com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier identifier = com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier.from("beaconlabs:cloud_gui");
-                                            player.getCurrentServer().get().sendPluginMessage(identifier, b.toByteArray());
-                                        } catch (Exception e) {
-                                            e.printStackTrace();
-                                        }
-                                    });
                                 });
                                 return;
                             }
