@@ -49,19 +49,84 @@ public class CloudCommand implements SimpleCommand {
         String[] args = invocation.arguments();
 
         if (args.length == 0) {
-            source.sendMessage(
-                    plugin.getPrefix()
-                            .append(Component.text("PufferLink Version ", NamedTextColor.RED))
-                            .append(Component.text(plugin.getVersion() + " ", NamedTextColor.GOLD))
-                            .append(Component.text("by ItsBeacon", NamedTextColor.RED)));
-            source.sendMessage(
-                    plugin.getPrefix()
-                            .append(Component.text("Usage: /cloud <list|up|status|console|start|stop|restart>",
-                                    NamedTextColor.GRAY)));
+            if (source instanceof com.velocitypowered.api.proxy.Player player && player.getCurrentServer().isPresent()) {
+                java.util.Optional<com.velocitypowered.api.plugin.PluginContainer> optBlv = proxy.getPluginManager().getPlugin("beaconlabsvelocity");
+                if (optBlv.isPresent()) {
+                    try {
+                        Object blv = optBlv.get().getInstance().orElse(null);
+                        if (blv != null) {
+                            java.lang.reflect.Method getTracker = blv.getClass().getMethod("getDependencyTracker");
+                            Object tracker = getTracker.invoke(blv);
+                            java.lang.reflect.Method isSupported = tracker.getClass().getMethod("isSupported", com.velocitypowered.api.proxy.ServerConnection.class);
+                            boolean supported = (boolean) isSupported.invoke(tracker, player.getCurrentServer().get());
+                            if (supported) {
+                                // Server supports Link plugin -> trigger GUI
+                                try {
+                                    com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier openId = com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier.from("beaconlabs:cloud_gui_open");
+                                    player.getCurrentServer().get().sendPluginMessage(openId, new byte[0]);
+                                } catch (Exception e) {}
+                                
+                                client.listServers(servers -> {
+                                    java.util.List<java.util.concurrent.CompletableFuture<com.google.gson.JsonObject>> futures = new java.util.ArrayList<>();
+                                    for (com.google.gson.JsonObject server : servers) {
+                                        String id = server.get("id").getAsString();
+                                        java.util.concurrent.CompletableFuture<com.google.gson.JsonObject> future = new java.util.concurrent.CompletableFuture<>();
+                                        client.getServerStatus(id, statusObj -> {
+                                            com.google.gson.JsonObject combined = new com.google.gson.JsonObject();
+                                            combined.addProperty("id", id);
+                                            combined.addProperty("name", server.get("name").getAsString());
+                                            if (statusObj != null) {
+                                                combined.addProperty("running", statusObj.get("running").getAsBoolean());
+                                                combined.addProperty("installing", statusObj.get("installing").getAsBoolean());
+                                            } else {
+                                                combined.addProperty("running", false);
+                                                combined.addProperty("installing", false);
+                                            }
+                                            future.complete(combined);
+                                        });
+                                        futures.add(future);
+                                    }
+                                    
+                                    java.util.concurrent.CompletableFuture.allOf(futures.toArray(new java.util.concurrent.CompletableFuture[0])).thenRun(() -> {
+                                        try {
+                                            java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
+                                            java.io.DataOutputStream out = new java.io.DataOutputStream(b);
+                                            out.writeInt(futures.size());
+                                            for (java.util.concurrent.CompletableFuture<com.google.gson.JsonObject> f : futures) {
+                                                com.google.gson.JsonObject obj = f.get();
+                                                out.writeUTF(obj.get("id").getAsString());
+                                                out.writeUTF(obj.get("name").getAsString());
+                                                out.writeBoolean(obj.get("running").getAsBoolean());
+                                                out.writeBoolean(obj.get("installing").getAsBoolean());
+                                            }
+                                            com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier identifier = com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier.from("beaconlabs:cloud_gui");
+                                            player.getCurrentServer().get().sendPluginMessage(identifier, b.toByteArray());
+                                        } catch (Exception e) {
+                                            e.printStackTrace();
+                                        }
+                                    });
+                                });
+                                return;
+                            }
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+            
+            // Text fallback (this is for when the server doesnt have Link installed)
+            sendInfo(source);
             return;
         }
 
-        switch (args[0].toLowerCase()) {
+        String[] cmdArgs = args;
+        if ("info".equalsIgnoreCase(cmdArgs[0])) {
+            sendInfo(source);
+            return;
+        }
+
+        switch (cmdArgs[0].toLowerCase()) {
             case "list":
                 client.listServers(servers -> processServerList(source, servers, false));
                 break;
@@ -71,19 +136,20 @@ public class CloudCommand implements SimpleCommand {
                 break;
 
             case "status":
-                if (args.length < 2) {
+                if (cmdArgs.length < 2) {
                     source.sendMessage(
                             plugin.getPrefix().append(Component.text("Usage: /cloud status <id>", NamedTextColor.RED)));
                     return;
                 }
-                client.getServerStatus(args[1], status -> {
+                String statusId = cmdArgs[1];
+                client.getServerStatus(statusId, status -> {
                     if (status == null) {
                         source.sendMessage(plugin.getPrefix()
                                 .append(Component.text("Server not found or error occurred.", NamedTextColor.RED)));
                         return;
                     }
                     source.sendMessage(plugin.getPrefix()
-                            .append(Component.text("Server Status for " + args[1] + ":", NamedTextColor.GREEN)));
+                            .append(Component.text("Server Status for " + statusId + ":", NamedTextColor.GREEN)));
                     source.sendMessage(
                             Component.text("Running: " + status.get("running").getAsBoolean(), NamedTextColor.GRAY));
                     source.sendMessage(Component.text("Installing: " + status.get("installing").getAsBoolean(),
@@ -92,13 +158,13 @@ public class CloudCommand implements SimpleCommand {
                 break;
 
             case "console":
-                if (args.length < 3) {
+                if (cmdArgs.length < 3) {
                     source.sendMessage(plugin.getPrefix()
                             .append(Component.text("Usage: /cloud console <id> <command>", NamedTextColor.RED)));
                     return;
                 }
-                String id = args[1];
-                String command = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
+                String id = cmdArgs[1];
+                String command = String.join(" ", Arrays.copyOfRange(cmdArgs, 2, cmdArgs.length));
                 client.sendConsoleCommand(id, command, success -> {
                     source.sendMessage(plugin.getPrefix()
                             .append(Component.text(success ? "Command sent to console." : "Failed to send command.",
@@ -106,12 +172,12 @@ public class CloudCommand implements SimpleCommand {
                 });
                 break;
             case "start":
-                if (args.length < 2) {
+                if (cmdArgs.length < 2) {
                     source.sendMessage(
                             plugin.getPrefix().append(Component.text("Usage: /cloud start <id>", NamedTextColor.RED)));
                     return;
                 }
-                client.startServer(args[1], success -> {
+                client.startServer(cmdArgs[1], success -> {
                     source.sendMessage(plugin.getPrefix().append(
                             Component.text(success ? "Starting server..." : "Failed to start server.",
                                     success ? NamedTextColor.GREEN : NamedTextColor.RED)));
@@ -119,12 +185,12 @@ public class CloudCommand implements SimpleCommand {
                 break;
 
             case "stop":
-                if (args.length < 2) {
+                if (cmdArgs.length < 2) {
                     source.sendMessage(
                             plugin.getPrefix().append(Component.text("Usage: /cloud stop <id>", NamedTextColor.RED)));
                     return;
                 }
-                client.stopServer(args[1], success -> {
+                client.stopServer(cmdArgs[1], success -> {
                     source.sendMessage(plugin.getPrefix().append(
                             Component.text(success ? "Stopping server..." : "Failed to stop server.",
                                     success ? NamedTextColor.GREEN : NamedTextColor.RED)));
@@ -132,13 +198,13 @@ public class CloudCommand implements SimpleCommand {
                 break;
 
             case "restart":
-                if (args.length < 2) {
+                if (cmdArgs.length < 2) {
                     source.sendMessage(plugin.getPrefix()
                             .append(Component.text("Usage: /cloud restart <id>", NamedTextColor.RED)));
                     return;
                 }
                 client.restartServer(
-                        args[1],
+                        cmdArgs[1],
                         success -> source.sendMessage(plugin.getPrefix().append(
                                 Component.text(success ? "Restarting server..." : "Failed to restart server.",
                                         success ? NamedTextColor.GREEN : NamedTextColor.RED))),
@@ -152,6 +218,18 @@ public class CloudCommand implements SimpleCommand {
                                 NamedTextColor.RED)));
                 break;
         }
+    }
+
+    private void sendInfo(CommandSource source) {
+        source.sendMessage(
+                plugin.getPrefix()
+                        .append(Component.text("PufferLink Version ", NamedTextColor.RED))
+                        .append(Component.text(plugin.getVersion() + " ", NamedTextColor.GOLD))
+                        .append(Component.text("by ItsBeacon", NamedTextColor.RED)));
+        source.sendMessage(
+                plugin.getPrefix()
+                        .append(Component.text("Usage: /cloud <info|list|up|status|console|start|stop|restart>",
+                                NamedTextColor.GRAY)));
     }
 
     private void processServerList(CommandSource source, List<JsonObject> servers, boolean onlyRunning) {
@@ -201,8 +279,8 @@ public class CloudCommand implements SimpleCommand {
 
     @Override
     public List<String> suggest(Invocation invocation) {
-        if (invocation.arguments().length == 1) {
-            return Arrays.asList("list", "up", "status", "console", "start", "stop", "restart");
+        if (invocation.arguments().length <= 1) {
+            return Arrays.asList("list", "up", "status", "console", "start", "stop", "restart", "info");
         }
         return Collections.emptyList();
     }

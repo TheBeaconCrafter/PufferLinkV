@@ -8,7 +8,7 @@ import com.velocitypowered.api.proxy.Player;
 import net.kyori.adventure.text.Component;
 import org.bcnlab.pufferLinkV.PufferLinkV;
 
-import javax.inject.Inject;
+import com.google.inject.Inject;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;

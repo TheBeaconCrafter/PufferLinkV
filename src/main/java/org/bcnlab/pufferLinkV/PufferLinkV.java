@@ -22,7 +22,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 
-@Plugin(id = "pufferlinkv", name = "PufferLinkV", version = "1.0", description = "Port of PufferLink to Velocity", url = "bcnlab.org", authors = {"Vincent Wackler"})
+import com.velocitypowered.api.plugin.Dependency;
+
+@Plugin(
+    id = "pufferlinkv", 
+    name = "PufferLinkV", 
+    version = "1.1.0",
+    description = "Velocity plugin that adds ingame commands for PufferPanel",
+    url = "bcnlab.org", 
+    authors = {"Vincent Wackler"}
+)
 public class PufferLinkV {
     @Inject
     @DataDirectory
@@ -36,7 +45,7 @@ public class PufferLinkV {
     private ConfigurationNode config;
 
     private String prefix;
-    private final String version = "1.0";
+    private final String version = "1.1.0";
 
     @Inject
     private Logger logger;
@@ -91,6 +100,9 @@ public class PufferLinkV {
                 serverMonitor.start();
                 logger.info("Server monitor started.");
             }
+
+            proxy.getChannelRegistrar().register(com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier.from("beaconlabs:cloud_gui_action"));
+            proxy.getEventManager().register(this, new org.bcnlab.pufferLinkV.command.CloudGuiListener(client, this));
 
             logger.info("Logged into PufferPanel!");
             client.printAllServers();
