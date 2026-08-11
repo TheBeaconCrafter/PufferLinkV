@@ -27,7 +27,7 @@ import com.velocitypowered.api.plugin.Dependency;
 @Plugin(
     id = "pufferlinkv", 
     name = "PufferLinkV", 
-    version = "1.1.0",
+    version = "1.1.2",
     description = "Velocity plugin that adds ingame commands for PufferPanel",
     url = "bcnlab.org", 
     authors = {"Vincent Wackler"}
@@ -45,7 +45,7 @@ public class PufferLinkV {
     private ConfigurationNode config;
 
     private String prefix;
-    private final String version = "1.1.0";
+    private final String version = "1.1.2";
 
     @Inject
     private Logger logger;
