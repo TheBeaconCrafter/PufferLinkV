@@ -2,6 +2,8 @@
 // What changed?
 // plugin.getLogger().warning changed to .warn
 
+// Changed more on 08/11/26 (added pagination support so servers still load when over 20 are available)
+
 package org.bcnlab.pufferLinkV.api;
 
 import com.google.gson.JsonArray;
@@ -78,57 +80,62 @@ public class PufferClient {
     }
 
     public void printAllServers() {
-        try (CloseableHttpClient client = HttpClients.createDefault()) {
-            HttpGet get = new HttpGet(host + "/api/servers");
-            get.setHeader("Accept", "application/json");
-            get.setHeader("Cookie", sessionCookie);
-
-            client.execute(get, response -> {
-                if (response.getCode() != 200) {
-                    plugin.getLogger().warn("Failed to get servers, code: " + response.getCode());
-                    return null;
+        listServers(servers -> {
+            if (servers == null || servers.isEmpty()) {
+                plugin.getLogger().warn("No servers found.");
+            } else {
+                System.out.println("Found " + servers.size() + " servers:");
+                for (JsonObject server : servers) {
+                    System.out.println("- " + server.get("name").getAsString());
                 }
-
-                JsonObject responseJson = JsonParser.parseReader(new InputStreamReader(response.getEntity().getContent())).getAsJsonObject();
-                JsonArray servers = responseJson.getAsJsonArray("servers");
-
-                if (servers == null || servers.size() == 0) {
-                    plugin.getLogger().warn("No servers found.");
-                } else {
-                    System.out.println("Found " + servers.size() + " servers:");
-                    for (JsonElement el : servers) {
-                        JsonObject server = el.getAsJsonObject();
-                        System.out.println("- " + server.get("name").getAsString());
-                    }
-                }
-
-                return null;
-            });
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+            }
+        });
     }
     // List all servers
     public void listServers(Consumer<List<JsonObject>> callback) {
         try (CloseableHttpClient client = HttpClients.createDefault()) {
-            HttpGet get = new HttpGet(host + "/api/servers");
-            get.setHeader("Accept", "application/json");
-            get.setHeader("Cookie", sessionCookie);
-
-            CloseableHttpResponse response = executeWithRetry(client, get);
-            if (response.getCode() != 200) {
-                plugin.getLogger().warn("Failed to get servers, code: " + response.getCode());
-                callback.accept(Collections.emptyList());
-                return;
-            }
-
-            JsonObject responseJson = JsonParser.parseReader(new InputStreamReader(response.getEntity().getContent())).getAsJsonObject();
-            JsonArray servers = responseJson.getAsJsonArray("servers");
-
             List<JsonObject> serverList = new ArrayList<>();
-            if (servers != null) {
-                for (JsonElement el : servers) {
-                    serverList.add(el.getAsJsonObject());
+            int page = 1;
+            boolean hasMore = true;
+            
+            while (hasMore) {
+                HttpGet get = new HttpGet(host + "/api/servers?page=" + page);
+                get.setHeader("Accept", "application/json");
+                get.setHeader("Cookie", sessionCookie);
+    
+                CloseableHttpResponse response = executeWithRetry(client, get);
+                if (response.getCode() != 200) {
+                    plugin.getLogger().warn("Failed to get servers on page " + page + ", code: " + response.getCode());
+                    if (serverList.isEmpty()) {
+                        callback.accept(Collections.emptyList());
+                        return;
+                    } else {
+                        break;
+                    }
+                }
+    
+                JsonObject responseJson = JsonParser.parseReader(new InputStreamReader(response.getEntity().getContent())).getAsJsonObject();
+                JsonArray servers = responseJson.getAsJsonArray("servers");
+    
+                if (servers != null) {
+                    for (JsonElement el : servers) {
+                        serverList.add(el.getAsJsonObject());
+                    }
+                }
+                
+                if (responseJson.has("paging")) {
+                    JsonObject paging = responseJson.getAsJsonObject("paging");
+                    int currentPage = paging.has("page") ? paging.get("page").getAsInt() : page;
+                    int pageSize = paging.has("pageSize") ? paging.get("pageSize").getAsInt() : 20;
+                    int total = paging.has("total") ? paging.get("total").getAsInt() : 0;
+                    
+                    if (currentPage * pageSize < total) {
+                        page++;
+                    } else {
+                        hasMore = false;
+                    }
+                } else {
+                    hasMore = false;
                 }
             }
             callback.accept(serverList);
